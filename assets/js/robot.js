@@ -21,6 +21,7 @@ export async function loadRobot(options={}) {
     if (object.isBone) bones[object.name.replace('mixamorig', '').replace(':', '')] = object;
   });
   const restPose = new Map(Object.values(bones).map(bone => [bone, bone.quaternion.clone()]));
+  const restPosition = new Map(Object.values(bones).map(bone => [bone, bone.position.clone()]));
   const restingHipPosition = bones.Hips?.position.clone();
   const bounds = new T.Box3().setFromObject(scene, true);
   const scale = 5 / bounds.getSize(new T.Vector3()).y;
@@ -375,5 +376,29 @@ export async function loadRobot(options={}) {
     for(const [bone,previous] of before)bone.quaternion.slerpQuaternions(previous,bone.quaternion.clone(),amount);
     rig.updateMatrixWorld(true);
   }
-  return { rig, setPhase, animate, animateAbout, animateAboutTransition, introduce };
+  function applyLimbTuning(tuning, amount=1) {
+    for (const side of ['Right','Left']) {
+      for (const [part, boneName] of [['wrist', side+'ForeArm'], ['palm', side+'Hand']]) {
+        const bone = bones[boneName];
+        const values = tuning?.[side]?.[part];
+        if (!bone || !values) continue;
+        const position = values.position || {};
+        const rotation = values.rotation || {};
+        const rest = restPosition.get(bone);
+        if (rest) bone.position.copy(rest).add(new T.Vector3(
+          (Number(position.x) || 0) * amount,
+          (Number(position.y) || 0) * amount,
+          (Number(position.z) || 0) * amount
+        ));
+        bone.quaternion.multiply(new T.Quaternion().setFromEuler(new T.Euler(
+          T.MathUtils.degToRad((Number(rotation.x) || 0) * amount),
+          T.MathUtils.degToRad((Number(rotation.y) || 0) * amount),
+          T.MathUtils.degToRad((Number(rotation.z) || 0) * amount),
+          'XYZ'
+        )));
+        bone.updateWorldMatrix(false, true);
+      }
+    }
+  }
+  return { rig, setPhase, animate, animateAbout, animateAboutTransition, introduce, applyLimbTuning };
 }

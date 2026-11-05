@@ -24,6 +24,18 @@ const WORD_CUES = Array.from({length:3}, (_, index) => ({
   duration:WORD_DURATION
 }));
 const mix = (a,b,t) => a + (b-a)*t;
+// Confirmed in the hand-pose tuner.  "Right" and "Left" are the model's
+// anatomical sides (Right appears on the screen's left in the opening pose).
+const ENDPOINT_LIMB_POSE = {
+  Right: {
+    wrist: {position:{x:-.70,y:-.70,z:-.30}, rotation:{x:4,y:2,z:-4}},
+    palm:  {position:{x:-.69,y:-.08,z: .00}, rotation:{x:-41,y:2,z:6}}
+  },
+  Left: {
+    wrist: {position:{x: .70,y:-.02,z: .34}, rotation:{x:-21,y:-1,z:1}},
+    palm:  {position:{x: .70,y:-.70,z: .70}, rotation:{x:2,y:3,z:1}}
+  }
+};
 
 
 function createWord(label) {
@@ -150,6 +162,11 @@ async function start() {
     const materialScroll = returning ? mix(2.0,0,home) : scroll;
     robot.setPhase(still ? 0 : .48 + .18*Math.sin(materialScroll*3.6) + .17*Math.sin(now*.00155));
     robot.animate(poseScroll, still, now*.001, .38);
+    // Use the tuned pose at the opening and the final visible frame, while
+    // letting the authored motion take over through the middle of the scroll.
+    const openingPose = 1 - ease(scroll / .55);
+    const closingPose = returning ? home : ease((scroll - STORY.leaveStart) / STORY.leaveDuration);
+    robot.applyLimbTuning(ENDPOINT_LIMB_POSE, Math.max(openingPose, closingPose));
     const sceneVisible = returning || scroll < STORY.exitEnd;
     robot.rig.visible = sceneVisible;
 

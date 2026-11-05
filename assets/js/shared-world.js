@@ -4,6 +4,11 @@ import {mountRipples} from './ripples.js?v=performance-22';
 const stage=document.querySelector('#shared-stage');
 const about=location.pathname.endsWith('/about.html');
 const reduced=matchMedia('(prefers-reduced-motion:reduce)');
+// Same confirmed wrist and palm offsets as Work's first and final frame.
+const WORK_ENDPOINT_LIMB_POSE={
+ Right:{wrist:{position:{x:-.70,y:-.70,z:-.30},rotation:{x:4,y:2,z:-4}},palm:{position:{x:-.69,y:-.08,z:0},rotation:{x:-41,y:2,z:6}}},
+ Left:{wrist:{position:{x:.70,y:-.02,z:.34},rotation:{x:-21,y:-1,z:1}},palm:{position:{x:.70,y:-.70,z:.70},rotation:{x:2,y:3,z:1}}}
+};
 mountRipples(stage,reduced,{ambient:true});
 async function start(){
  const renderer=new T.WebGLRenderer({alpha:true,antialias:true});
@@ -39,12 +44,19 @@ async function start(){
    robot.animate(p*3,reduced.matches,now*.001);
    robot.introduce(closing,reduced.matches,now*.001);
  }
- const transition=T.MathUtils.smoothstep(p,0,.25);
+ // Keep the shared opening on Work's exact first-frame composition before
+ // each page begins its own camera and pose sequence. Portfolio holds it
+ // through its first two opening beats; About holds it through its first beat.
+ const holdEnd=about?.12:.22;
+ const transition=T.MathUtils.smoothstep(p,holdEnd,holdEnd+.25);
  if(!about && transition<1){
    for(const pose of poseBones){pose.rotation.copy(pose.bone.quaternion);pose.position.copy(pose.bone.position);}
    robot.animate(0,reduced.matches,now*.001,.38);
    for(const pose of poseBones){pose.bone.quaternion.slerp(pose.rotation,transition);pose.bone.position.lerp(pose.position,transition);}
  }
+ // Apply Work's verified hand endpoints before the page-specific motion
+ // gradually takes over, so the opening frames agree visually.
+ robot.applyLimbTuning(WORK_ENDPOINT_LIMB_POSE,1-transition);
  const narrow=innerWidth<680;
  const openingDistance=narrow?4.72:3.76;
  const openingX=openingDistance*camera.aspect*(narrow?.084:.24);
