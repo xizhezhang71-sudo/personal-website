@@ -1,0 +1,1 @@
+const entries=[...document.querySelectorAll('details')];let prior=[];window.addEventListener('beforeprint',()=>{prior=entries.map(d=>d.open);entries.forEach(d=>d.open=true)});window.addEventListener('afterprint',()=>entries.forEach((d,i)=>d.open=prior[i]));document.getElementById('print').onclick=()=>window.print();
