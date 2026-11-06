@@ -70,7 +70,9 @@ export function mountRipples(stage, reduce, options={}) {
     const bandAngle=-seconds*.075+.35*Math.cos(seconds*.13);
     const bandCos=Math.cos(bandAngle),bandSin=Math.sin(bandAngle);
     const bandWidth=.10+.18*(.5+.5*Math.sin(seconds*.24+1.4));
-    const maskRadius = Math.max(92, Math.min(innerWidth, innerHeight) * .24);
+    // Keep the pointer reveal local to the cursor instead of washing across a
+    // large portion of the composition.
+    const maskRadius = Math.max(72, Math.min(innerWidth, innerHeight) * .18);
     for(const point of points){
       let dx=0,dy=0,power=0,warm=point.warm,fieldStrength=point.strength;
       if(ambient&&!reduce.matches){

@@ -1,8 +1,13 @@
 import * as T from '../vendor/three.module.min.js';
 import { loadRobot } from './robot.js?v=pose-sync-35';
+import {
+  OPENING_FRAME,
+  OPENING_IDLE_SCALE,
+  WORK_ENDPOINT_LIMB_POSE
+} from './scene-frames.js?v=frame-sync-36';
 
 import { updateManifesto, STORY } from './manifesto.js?v=sync-32';
-import { mountRipples } from './ripples.js?v=performance-22';
+import { mountRipples } from './ripples.js?v=cursor-mask-23';
 
 const section = document.querySelector('.signal-run');
 const hero = section.querySelector('.hero');
@@ -24,20 +29,6 @@ const WORD_CUES = Array.from({length:3}, (_, index) => ({
   duration:WORD_DURATION
 }));
 const mix = (a,b,t) => a + (b-a)*t;
-// Confirmed in the hand-pose tuner.  "Right" and "Left" are the model's
-// anatomical sides (Right appears on the screen's left in the opening pose).
-const ENDPOINT_LIMB_POSE = {
-  Right: {
-    wrist: {position:{x:-.70,y:-.70,z:-.30}, rotation:{x:4,y:2,z:-4}},
-    palm:  {position:{x:-.69,y:-.08,z: .00}, rotation:{x:-41,y:2,z:6}}
-  },
-  Left: {
-    wrist: {position:{x: .70,y:-.02,z: .34}, rotation:{x:-21,y:-1,z:1}},
-    palm:  {position:{x: .70,y:-.70,z: .70}, rotation:{x:2,y:3,z:1}}
-  }
-};
-
-
 function createWord(label) {
   const canvas = document.createElement('canvas');
   canvas.width = 1536;
@@ -101,13 +92,13 @@ async function start() {
     // Opening: a clearly low camera frames the upper thighs through the head.
     // TECHNOLOGY begins only once the camera has reached the upper-body close-up.
     // Reference opening: a close, clearly low-angle frame cropped at the upper thighs.
-    const openingDistance = narrow ? 4.72 : 3.76;
+    const openingDistance = narrow ? OPENING_FRAME.narrowDistance : OPENING_FRAME.distance;
     const closeDistance = narrow ? 4.8 : 3.55;
-    const openingTarget = .98;
-    const openingCameraDrop = openingDistance * Math.tan(T.MathUtils.degToRad(26));
+    const openingTarget = OPENING_FRAME.target;
+    const openingCameraDrop = -openingDistance * Math.tan(T.MathUtils.degToRad(OPENING_FRAME.cameraPitchDegrees));
     const closeTarget = 1.65;
-    const framingOffset = narrow ? .084 : .24;
-    const initialAngle = -T.MathUtils.degToRad(30);
+    const framingOffset = narrow ? OPENING_FRAME.narrowFramingOffset : OPENING_FRAME.framingOffset;
+    const initialAngle = OPENING_FRAME.rigRotationY;
     const center = still ? 0 : ease(scroll / 1.65);
     const push = still ? 0 : ease((scroll - .10) / .45);
     const exit = still ? 0 : .28*ease((scroll-1.65)/(.75)) + .72*ease((scroll-STORY.leaveStart)/STORY.leaveDuration);
@@ -118,7 +109,7 @@ async function start() {
     const enter = ease(returnProgress / .28);
     const home = ease((returnProgress - .28) / .72);
     const closeup = returning ? (still ? 0 : 1-home) : push;
-    const fov = mix(narrow ? 41 : 43.5, 35, closeup);
+    const fov = mix(narrow ? OPENING_FRAME.narrowFov : OPENING_FRAME.fov, 35, closeup);
     if (camera.fov !== fov) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
@@ -166,10 +157,11 @@ async function start() {
     robot.setPhase(still ? 0 : .48 + .18*Math.sin(materialScroll*3.6) + .17*Math.sin(now*.00155));
     // Keep the confirmed endpoint deterministic. Time-based body sway fades in
     // only after leaving the opening pose and fades out before the final pose.
-    robot.animate(poseScroll, still || endpointPose >= .999, now*.001, .38*(1-endpointPose));
+    const openingIdle = openingPose >= .999 ? OPENING_IDLE_SCALE : .38*(1-endpointPose);
+    robot.animate(poseScroll, still, now*.001, openingIdle);
     // Use the tuned pose at the opening and the final visible frame, while
     // letting the authored motion take over through the middle of the scroll.
-    robot.applyLimbTuning(ENDPOINT_LIMB_POSE, endpointPose);
+    robot.applyLimbTuning(WORK_ENDPOINT_LIMB_POSE, endpointPose);
     const sceneVisible = returning || scroll < STORY.exitEnd;
     robot.rig.visible = sceneVisible;
 
