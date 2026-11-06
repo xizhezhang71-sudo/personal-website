@@ -1,5 +1,5 @@
 import * as T from '../vendor/three.module.min.js';
-import { loadRobot } from './robot.js?v=arms-restored-27';
+import { loadRobot } from './robot.js?v=pose-sync-35';
 
 import { updateManifesto, STORY } from './manifesto.js?v=sync-32';
 import { mountRipples } from './ripples.js?v=performance-22';
@@ -160,13 +160,16 @@ async function start() {
       camera.setViewOffset(frameWidth, frameHeight, viewOffsetX, 0, frameWidth, frameHeight);
     }
     const materialScroll = returning ? mix(2.0,0,home) : scroll;
-    robot.setPhase(still ? 0 : .48 + .18*Math.sin(materialScroll*3.6) + .17*Math.sin(now*.00155));
-    robot.animate(poseScroll, still, now*.001, .38);
-    // Use the tuned pose at the opening and the final visible frame, while
-    // letting the authored motion take over through the middle of the scroll.
     const openingPose = 1 - ease(scroll / .55);
     const closingPose = returning ? home : ease((scroll - STORY.leaveStart) / STORY.leaveDuration);
-    robot.applyLimbTuning(ENDPOINT_LIMB_POSE, Math.max(openingPose, closingPose));
+    const endpointPose = Math.max(openingPose, closingPose);
+    robot.setPhase(still ? 0 : .48 + .18*Math.sin(materialScroll*3.6) + .17*Math.sin(now*.00155));
+    // Keep the confirmed endpoint deterministic. Time-based body sway fades in
+    // only after leaving the opening pose and fades out before the final pose.
+    robot.animate(poseScroll, still || endpointPose >= .999, now*.001, .38*(1-endpointPose));
+    // Use the tuned pose at the opening and the final visible frame, while
+    // letting the authored motion take over through the middle of the scroll.
+    robot.applyLimbTuning(ENDPOINT_LIMB_POSE, endpointPose);
     const sceneVisible = returning || scroll < STORY.exitEnd;
     robot.rig.visible = sceneVisible;
 

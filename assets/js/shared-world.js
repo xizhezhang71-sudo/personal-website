@@ -1,5 +1,5 @@
 import * as T from '../vendor/three.module.min.js';
-import {loadRobot} from './robot.js?v=about-natural-33';
+import {loadRobot} from './robot.js?v=pose-sync-35';
 import {mountRipples} from './ripples.js?v=performance-22';
 const stage=document.querySelector('#shared-stage');
 const about=location.pathname.endsWith('/about.html');
@@ -49,9 +49,13 @@ async function start(){
  // through its first two opening beats; About holds it through its first beat.
  const holdEnd=about?.12:.22;
  const transition=T.MathUtils.smoothstep(p,holdEnd,holdEnd+.25);
+ if(about && transition===0){
+   // About's first beat is exactly Work's static first frame.
+   robot.animate(0,true,0);
+ }
  if(!about && transition<1){
    for(const pose of poseBones){pose.rotation.copy(pose.bone.quaternion);pose.position.copy(pose.bone.position);}
-   robot.animate(0,reduced.matches,now*.001,.38);
+   robot.animate(0,reduced.matches||transition===0,transition===0?0:now*.001,.38*transition);
    for(const pose of poseBones){pose.bone.quaternion.slerp(pose.rotation,transition);pose.bone.position.lerp(pose.position,transition);}
  }
  // Apply Work's verified hand endpoints before the page-specific motion
